@@ -892,7 +892,7 @@
                     <div class="contact-icon"><i class="fa-solid fa-envelope"></i></div>
                     <div class="contact-info">
                         <h4>Email</h4>
-                        <p><a href="mailto:rkbikers@gmail.com">rkbikers@gmail.com</a></p>
+                        <p><a href="/cdn-cgi/l/email-protection#27554c454e4c42555467404a464e4b0944484a"><span class="__cf_email__" data-cfemail="295b424b40424c5b5a694e44484045074a4644">[email&#160;protected]</span></a></p>
                     </div>
                 </div>
                 <div class="contact-card">
@@ -922,7 +922,7 @@
     </main>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 'use strict';
 
 /* ================================================================
@@ -1009,22 +1009,40 @@ let adminSelectedIds = new Set();
 ================================================================ */
 function saveData() {
     try {
-        localStorage.setItem('rkbikers_inv',    JSON.stringify(inventory));
-        localStorage.setItem('rkbikers_cart',   JSON.stringify(cart));
-        localStorage.setItem('rkbikers_orders', JSON.stringify(orders));
-        localStorage.setItem('rkbikers_pwd',    adminPwd);
+        localStorage.setItem('rkbikers_inv',         JSON.stringify(inventory));
+        localStorage.setItem('rkbikers_cart',        JSON.stringify(cart));
+        localStorage.setItem('rkbikers_orders',      JSON.stringify(orders));
+        localStorage.setItem('rkbikers_pwd',         adminPwd);
+        localStorage.setItem('rkbikers_initialized', '1');  // FIX 1 & 2: mark as seeded
     } catch(e) { console.warn('Storage error:', e); }
 }
 
 function loadData() {
-    adminPwd = localStorage.getItem('rkbikers_pwd') || 'admin123';
+    // FIX 2: Always read password from storage — never fall back to hardcoded default after first save
+    const storedPwd = localStorage.getItem('rkbikers_pwd');
+    adminPwd = storedPwd !== null ? storedPwd : 'admin123';
+
     try { const c = localStorage.getItem('rkbikers_cart');   cart   = c ? JSON.parse(c) : []; } catch { cart   = []; }
     try { const o = localStorage.getItem('rkbikers_orders'); orders = o ? JSON.parse(o) : []; } catch { orders = []; }
+
     try {
-        const inv = localStorage.getItem('rkbikers_inv');
-        inventory = inv ? JSON.parse(inv) : [];
-        if (!inventory.length) generateInventory();
-    } catch { generateInventory(); }
+        const inv         = localStorage.getItem('rkbikers_inv');
+        const initialized = localStorage.getItem('rkbikers_initialized');
+
+        if (inv && initialized === '1') {
+            // FIX 1: Data was previously saved — always use it, even if array is now empty after deletions
+            inventory = JSON.parse(inv);
+        } else {
+            // First time ever — generate default inventory and mark initialized
+            generateInventory();
+        }
+    } catch {
+        // Only regenerate if storage is truly corrupted
+        const initialized = localStorage.getItem('rkbikers_initialized');
+        if (!initialized) generateInventory();
+        else inventory = [];
+    }
+
     updateCartCount();
 }
 
@@ -1048,7 +1066,7 @@ function generateInventory() {
             });
         });
     });
-    saveData();
+    saveData(); // this also sets rkbikers_initialized = '1'
 }
 
 /* ================================================================
@@ -1113,12 +1131,14 @@ function doSwitchView(name) {
     const nav = document.querySelector(`.nav-item[data-view="${name}"]`);
     if (nav) nav.classList.add('active');
 
+    // FIX 3: Every view re-renders fresh on every navigation click
     if (name === 'inventory')    { invSelectedIds.clear(); renderInventory(); }
     if (name === 'admin')        { adminSelectedIds.clear(); renderAdmin(); }
     if (name === 'cart')         { renderCart(); }
     if (name === 'dashboard')    { renderDashboardStats(); renderLowStock(); }
     if (name === 'orders')       { renderOrders(); }
     if (name === 'service-kits') { renderServiceKits(); }
+    if (name === 'contact')      { /* static, no render needed */ }
 }
 
 /* ================================================================
@@ -1984,16 +2004,4 @@ document.getElementById('notifBtn').addEventListener('click', () => {
 
 /* ================================================================
    INIT
-================================================================ */
-window.onload = function() {
-    loadData();
-    populateSelects();
-    buildBrandNav();
-    buildAdMarquee();
-    renderServiceKits();
-    renderDashboardStats();
-    renderLowStock();
-};
-</script>
-</body>
-</html>
+=========================================
