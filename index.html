@@ -2009,5 +2009,129 @@ window.onload = function() {
     renderLowStock();
 };
 </script>
+
+<!-- Firebase Integration Patch for RK Bikers -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAjGEYfTYLen58WRc9QHRgBQXEIcPvDEN0",
+  authDomain: "rkbikers-ef638.firebaseapp.com",
+  projectId: "rkbikers-ef638",
+  storageBucket: "rkbikers-ef638.firebasestorage.app",
+  messagingSenderId: "629743056284",
+  appId: "1:629743056284:web:806c18b8d85f781e6c8459"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.db = db;
+window.fb = { collection, getDocs, setDoc, deleteDoc, doc };
+
+console.log("Firebase connected successfully 🚀");
+</script>
+
+<script>
+// Override storage functions to use Firebase
+
+async function saveData() {
+    if (!window.db) return;
+
+    const { collection, setDoc, doc } = window.fb;
+
+    for (const item of inventory) {
+        await setDoc(doc(window.db, "inventory", String(item.id)), item);
+    }
+
+    console.log("Inventory synced to Firebase ✅");
+}
+
+async function loadData() {
+    if (!window.db) return;
+
+    const { collection, getDocs } = window.fb;
+
+    const snapshot = await getDocs(collection(window.db, "inventory"));
+
+    if (!snapshot.empty) {
+        inventory = [];
+        snapshot.forEach(docSnap => inventory.push(docSnap.data()));
+    }
+
+    renderInventory();
+    renderAdmin();
+
+    console.log("Inventory loaded from Firebase ✅");
+}
+
+async function deleteSelectedProducts() {
+    if (!window.db) return;
+
+    const { deleteDoc, doc } = window.fb;
+
+    for (const id of adminSelectedIds) {
+        await deleteDoc(doc(window.db, "inventory", String(id)));
+    }
+
+    inventory = inventory.filter(item => !adminSelectedIds.has(item.id));
+    adminSelectedIds.clear();
+
+    renderAdmin();
+    renderInventory();
+
+    showToast("Selected products deleted permanently 🔥");
+}
+
+async function addNewProduct() {
+    if (!window.db) return;
+
+    const { setDoc, doc } = window.fb;
+
+    const name  = document.getElementById("addName").value.trim();
+    const brand = document.getElementById("addBrand").value.trim();
+    const model = document.getElementById("addModel").value.trim();
+    const cat   = document.getElementById("addCat").value;
+    const price = Number(document.getElementById("addPrice").value);
+    const stock = Number(document.getElementById("addStock").value);
+    const partNo = document.getElementById("addPartNo").value.trim();
+
+    if (!name || !brand || !model || !price) {
+        showToast("Fill required fields ⚠️", "warning");
+        return;
+    }
+
+    const id = Date.now();
+
+    const newItem = {
+        id,
+        name,
+        brand,
+        model,
+        partNo,
+        category: cat,
+        price,
+        stock
+    };
+
+    inventory.push(newItem);
+
+    await setDoc(doc(window.db, "inventory", String(id)), newItem);
+
+    renderAdmin();
+    renderInventory();
+
+    showToast("Product added successfully ✅");
+}
+</script>
+
 </body>
 </html>
